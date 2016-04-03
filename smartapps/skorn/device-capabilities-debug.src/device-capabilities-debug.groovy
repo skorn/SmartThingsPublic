@@ -26,7 +26,7 @@ definition(
 
 preferences {
     section("Title") {
-        input "mySwitch", "capability.switch"
+        input "mySwitch", "capability.contactSensor"
     }
 }
 
@@ -53,6 +53,10 @@ def initialize() {
             log.debug "${mySwitch.name},${cap.name},${comm.name}"
         }
     }
+    subscribe(mySwitch, "contactSensor", logIt, [filterEvents: false])
 }
 
-
+def logIt(evt) {
+    log.debug "Got event ${evt}"
+    log.debug "Value: ${evt.value}"
+}
