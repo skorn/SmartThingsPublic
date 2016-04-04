@@ -53,10 +53,25 @@ def initialize() {
             log.debug "${mySwitch.name},${cap.name},${comm.name}"
         }
     }
-    subscribe(mySwitch, "contactSensor", logIt, [filterEvents: false])
+    subscribe(mySwitch, "contactSensor", logIt)
+    subscribe(mySwitch, "sensor", logSensor)
+    subscribe(mySwitch, "contact", logContact)
+    subscribe(mySwitch, "battery", logBattery)
 }
 
 def logIt(evt) {
     log.debug "Got event ${evt}"
     log.debug "Value: ${evt.value}"
+}
+def logSensor(evt) {
+    log.debug "sensor Got event ${evt}"
+    log.debug "sensor Value: ${evt.value}"
+}
+def logContact(evt) {
+    log.debug "contact Got event ${evt}"
+    log.debug "contact Value: ${evt.value}"
+}
+def logBattery(evt) {
+    log.debug "battery Got event ${evt}"
+    log.debug "battery Value: ${evt.value}"
 }
