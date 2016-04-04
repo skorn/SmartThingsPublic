@@ -41,13 +41,13 @@ preferences {
 
 def installed()
 {
-	itialize()
+	initialize()
 }
 
 def updated()
 {
 	unsubscribe()
-	itialize()
+	initialize()
 }
 
 def initialize()
