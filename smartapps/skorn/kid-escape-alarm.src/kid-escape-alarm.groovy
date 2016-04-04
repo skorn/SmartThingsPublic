@@ -52,10 +52,27 @@ def updated()
 
 def initialize()
 {
+    subscribe(door, "contact", doorHandler)
     subscribe(master, "switch", switchHandler, [filterEvents: false])
     subscribe(secondary, "button", buttonHandler, [filterEvents: false])
     state.enabled = 1
     state.switchHistory = 0
+}
+
+def doorHandler(evt) {
+    if (evt.value == "open") {
+        if (state.enabled == 1) {
+            keepAlarming()
+        }
+    }
+}
+
+def keepAlarming() {
+    def currentValue = door.currentValue("contact")
+    if (currentValue == "open" && state.enabled == 1) {
+        siren.musicPlayer.playTrack(6)
+        runIn(1, keepAlarming)
+    }
 }
 
 def switchHandler(evt) {
@@ -63,18 +80,40 @@ def switchHandler(evt) {
 	log.info evt.value
 
 	if (evt.physical) {
-		if (state.switchTS > (now() - 2000)) {
+        // Allow only up to 3 seconds in between presses, else reset
+		if (state.switchTS > (now() - 3000)) {
+            // Expect up, up, down, down: reset if doesn't matchand if it does sleep alarm 60 seconds
             switch (state.switchHistory) {
                 case 0:
-                     if (evt.value == "on") {
-                         state.switchHistory = 1
-                     } else {
-                          state.swtichHistory = 0
-                     }
-                     break
-                 default:
-                     state.switchHistory = 0
-                     break
+                    if (evt.value == "on") {
+                        state.switchHistory = 1
+                    } else {
+                        state.switchHistory = 0
+                    }
+                    break
+                case 1:
+                    if (evt.value == "on") {
+                        state.switchHistory = 2
+                    } else {
+                        state.switchHistory = 0
+                    }
+                    break
+                case 2:
+                    if (evt.value == "off") {
+                        state.switchHistory = 3
+                    } else {
+                        state.switchHistory = 0
+                    }
+                    break
+                case 3:
+                    if (evt.value == "off") {
+                        sleepAlarm(60)
+                    }
+                    state.switchHistory = 0
+                    break
+                default:
+                    state.switchHistory = 0
+                    break
             }
 		} else {
             if (evt.value == "on" ) {
@@ -84,8 +123,16 @@ def switchHandler(evt) {
             }
         }
         state.switchTS = now()
-
 	} else {
 		log.trace "Skipping digital on/off event"
 	}
+}
+
+def sleepAlarm(sleepTime) {
+    state.enabled = 0
+    runIn(sleepTime, enableAlarm)
+}
+
+def enableAlarm() {
+    state.enabled = 1
 }
