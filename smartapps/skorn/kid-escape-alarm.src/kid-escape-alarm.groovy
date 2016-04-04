@@ -70,7 +70,7 @@ def doorHandler(evt) {
 def keepAlarming() {
     def currentValue = door.currentValue("contact")
     if (currentValue == "open" && state.enabled == 1) {
-        siren.musicPlayer.playTrack(6)
+        siren.playTrack(6)
         runIn(1, keepAlarming)
     }
 }
