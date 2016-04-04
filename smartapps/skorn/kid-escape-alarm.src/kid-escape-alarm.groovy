@@ -18,7 +18,7 @@ definition(
     name: "Kid escape alarm",
     namespace: "skorn",
     author: "Martin Lariz",
-    description: "Use combination of siren, door sensor and button (currently switch as I don't have a button) to detect child leaving throug frontdoor unattended.",
+    description: "Use combination of siren, door sensor and switch to detect child leaving through frontdoor unattended.",
     category: "Safety & Security",
     iconUrl: "https://s3.amazonaws.com/smartapp-icons/SafetyAndSecurity/App-IsItSafe.png",
     iconX2Url: "https://s3.amazonaws.com/smartapp-icons/SafetyAndSecurity/App-IsItSafe@2x.png"
@@ -26,9 +26,9 @@ definition(
 
 preferences {
 	section("Door sensor to monitor.") {
-		input "door", "capability.sensor", required: true
+		input "door", "capability.contactSensor", required: true
 	}
-	section("Switch (or button in future) to disable alarm.") {
+	section("Switch used to disable alarm.") {
 		input "master", "capability.switch", required: true
 	}
 	section("Siren to alarm with.") {
@@ -71,7 +71,7 @@ def keepAlarming() {
     def currentValue = door.currentValue("contact")
     if (currentValue == "open" && state.enabled == 1) {
         siren.playTrack(6)
-        runIn(1, keepAlarming)
+        runIn(60, keepAlarming)
     }
 }
 
