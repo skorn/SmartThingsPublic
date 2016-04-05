@@ -33,13 +33,13 @@ preferences {
         input "sirenTrack", "number", title: "Which track to alarm with? (default: 1)", defaultValue: "1"
         input "sirenRepeat", "number", title: "How often (in seconds) to repeat (should be duration of the alarm to keep constant)? (default: 10)", defaultValue: "10"
     }
-    section("Switch used to disable alarm.") {
-        input "master", "capability.switch", required: true
+    section("Switch(es) to disable alarm. (sequence to disable is up, up, down, down") {
+        input "switches", "capability.switch", required: false, multiple: true
         input "switchSleep", "number", title: "Sleep for how many seconds? (default: 60)", defaultValue: "60"
         input "switchInterval", "number", title: "How many seconds to allow between switch presses? (default: 4)", defaultValue: "4"
     }
-    section("Optional second button to disable alarm") {
-        input "secondary", "capability.button", required: false
+    section("Button(s) to disable alarm") {
+        input "buttons", "capability.button", required: false, multiple: true
         input "buttonSleep", "number", title: "Sleep for how many seconds? (default: 60)", defaultValue: "60"
     }
 }
@@ -55,11 +55,16 @@ def updated() {
 
 def initialize() {
     subscribe(door, "contact", doorHandler)
-    subscribe(master, "switch", switchHandler, [filterEvents: false])
-    subscribe(secondary, "button", buttonHandler, [filterEvents: false])
+    subscribe(switches, "switch", switchHandler, [filterEvents: false])
+    subscribe(buttons, "button", buttonHandler, [filterEvents: false])
+    log.debug state
+    state.clear()
     state.enabled = 1
-    state.switchHistory = 0
     state.alarmLoops = 1
+    switches.each {
+        state[it.displayName] = [history: 0, ts: 0]
+    }
+    log.debug state
 }
 
 def doorHandler(evt) {
@@ -67,6 +72,8 @@ def doorHandler(evt) {
         if (state.enabled == 1) {
             log.debug "Sending initial Alarm sequence."
             keepAlarming()
+        } else {
+            log.debug "Got open on door but alarming disabled."
         }
     } else if (evt.value == "closed") {
         log.debug "Stopping any current alarms."
@@ -87,34 +94,36 @@ def keepAlarming() {
 
 def switchHandler(evt) {
     if (evt.physical) {
-        if (state.switchTS > (currentTime - (switchInterval * 1000))) {
+        def myMap = state[evt.displayName]
+        def currentTime = now()
+        if (myMap['ts'] > (currentTime - (switchInterval * 1000))) {
             // Expect up, up, down, down: reset if doesn't matchand if it does sleep alarm
-            switch (state.switchHistory) {
+            switch (myMap['history']) {
                 case 0:
                     if (evt.value == "on") {
                         log.debug "Sequence: Got first in sequence 'UP, up, down, down'"
-                        state.switchHistory = 1
+                        myMap['history'] = 1
                     } else {
                         log.debug "Sequence: Isolated off, sequence reset"
-                        state.switchHistory = 0
+                        myMap['history'] = 0
                     }
                     break
                 case 1:
                     if (evt.value == "on") {
                         log.debug "Sequence: Got second in sequence 'UP, UP, down, down'"
-                        state.switchHistory = 2
+                        myMap['history'] = 2
                     } else {
                         log.debug "Sequence: Second in sequence incorrect, sequence reset"
-                        state.switchHistory = 0
+                        myMap['history'] = 0
                     }
                     break
                 case 2:
                     if (evt.value == "off") {
                         log.debug "Sequence: Got third in sequence 'UP, UP, DOWN, down'"
-                        state.switchHistory = 3
+                        myMap['history'] = 3
                     } else {
                         log.debug "Sequence: Third in sequence incorrect, sequence reset"
-                        state.switchHistory = 0
+                        myMap['history'] = 0
                     }
                     break
                 case 3:
@@ -124,23 +133,23 @@ def switchHandler(evt) {
                     } else {
                         log.debug "Sequence: Final down in sequence incorrect, sequence reset"
                     }
-                    state.switchHistory = 0
+                    myMap['history'] = 0
                     break
                 default:
                     log.debug "Sequence: Got UNEXPECTED switchHistory, resetting sequence"
-                    state.switchHistory = 0
+                    myMap['history'] = 0
                     break
             }
         } else {
             if (evt.value == "on" ) {
                 log.debug "Sequence: Got first in sequence 'UP, up, down, down'"
-                state.switchHistory = 1
+                myMap['history'] = 1
             } else {
                 log.debug "Sequence: Isolated off, sequence reset"
-                state.switchHistory = 0
+                myMap['history'] = 0
             }
         }
-        state.switchTS = now()
+        myMap['ts'] = now()
     } else {
         log.trace "Skipping digital on/off event"
     }
@@ -149,7 +158,7 @@ def switchHandler(evt) {
 def buttonHandler(evt) {
     if (evt.physical) {
         // TBD Ensure button press is captured properly, may need an "if" statement here
-        log.debug "Got secondary button press, sleeping"
+        log.debug "Got button press, sleeping"
         sleepAlarm(buttonSleep)
     } else {
         log.trace "Skipping digital on/off event"
