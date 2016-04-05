@@ -30,17 +30,17 @@ preferences {
     }
     section("Siren to alarm with.") {
         input "siren", "capability.alarm", required: true
-        input "sirenTrack", "number", title: "Which track to alarm with? (default: 1)", defaultValue: "1"
-        input "sirenRepeat", "number", title: "How often (in seconds) to repeat (should be duration of the alarm to keep constant)? (default: 10)", defaultValue: "10"
+        input "sirenTrack", "number", title: "Which track to alarm with? (default: 1)", defaultValue: "1", required: true
+        input "sirenRepeat", "number", title: "How often (in seconds) to repeat (should be duration of the alarm to keep constant)? (default: 10)", defaultValue: "10", required: true
     }
     section("Switch(es) to disable alarm. (sequence to disable is up, up, down, down") {
         input "switches", "capability.switch", required: false, multiple: true
-        input "switchSleep", "number", title: "Sleep for how many seconds? (default: 60)", defaultValue: "60"
-        input "switchInterval", "number", title: "How many seconds to allow between switch presses? (default: 4)", defaultValue: "4"
+        input "switchSleep", "number", title: "Sleep for how many seconds? (default: 60)", defaultValue: "60", required: true
+        input "switchInterval", "number", title: "How many seconds to allow between switch presses? (default: 4)", defaultValue: "4", required: true
     }
     section("Button(s) to disable alarm") {
         input "buttons", "capability.button", required: false, multiple: true
-        input "buttonSleep", "number", title: "Sleep for how many seconds? (default: 60)", defaultValue: "60"
+        input "buttonSleep", "number", title: "Sleep for how many seconds? (default: 60)", defaultValue: "60", required: true
     }
 }
 
@@ -57,14 +57,12 @@ def initialize() {
     subscribe(door, "contact", doorHandler)
     subscribe(switches, "switch", switchHandler, [filterEvents: false])
     subscribe(buttons, "button", buttonHandler, [filterEvents: false])
-    log.debug state
     state.clear()
     state.enabled = 1
     state.alarmLoops = 1
     switches.each {
         state[it.displayName] = [history: 0, ts: 0]
     }
-    log.debug state
 }
 
 def doorHandler(evt) {
@@ -156,13 +154,8 @@ def switchHandler(evt) {
 }
 
 def buttonHandler(evt) {
-    if (evt.physical) {
-        // TBD Ensure button press is captured properly, may need an "if" statement here
-        log.debug "Got button press, sleeping"
-        sleepAlarm(buttonSleep)
-    } else {
-        log.trace "Skipping digital on/off event"
-    }
+    log.debug "Got button press, sleeping"
+    sleepAlarm(buttonSleep)
 }
 
 def sleepAlarm(sleepTime) {
