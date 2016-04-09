@@ -30,17 +30,16 @@ preferences {
     }
     section("Siren to alarm with.") {
         input "siren", "capability.alarm", required: true
-        input "sirenTrack", "number", title: "Which track to alarm with? (default: 1)", defaultValue: "1", required: true
+        input "sirenTrack", "number", title: "Which track to alarm with? (default: 5)", defaultValue: "5", required: true
         input "sirenRepeat", "number", title: "How often (in seconds) to repeat (should be duration of the alarm to keep constant)? (default: 10)", defaultValue: "10", required: true
     }
-    section("Switch(es) to disable alarm. (sequence to disable is up, up, down, down") {
-        input "switches", "capability.switch", required: false, multiple: true
-        input "switchSleep", "number", title: "Sleep for how many seconds? (default: 60)", defaultValue: "60", required: true
-        input "switchInterval", "number", title: "How many seconds to allow between switch presses? (default: 4)", defaultValue: "4", required: true
-    }
     section("Button(s) to disable alarm") {
-        input "buttons", "capability.button", required: false, multiple: true
-        input "buttonSleep", "number", title: "Sleep for how many seconds? (default: 60)", defaultValue: "60", required: true
+        input "buttons", "capability.button", title: "Standard buttons", required: true, multiple: true
+        input "buttonSleep", "number", title: "Sleep up to X seconds (before door opens, re-enables when closed)? (default: 60)", defaultValue: "60", required: true
+    }
+    section("Disable chirp?") {
+        input "notifyButtons", "capability.button", title: "Play a sound when one of these buttons disables the alarm", required: false, multiple: true
+        input "notifyChirp", "number", title: "Track to play when alert is temporarily disabled (0 disables)", defaultValue: "0", required: true
     }
 }
 
@@ -55,114 +54,55 @@ def updated() {
 
 def initialize() {
     subscribe(door, "contact", doorHandler)
-    subscribe(switches, "switch", switchHandler, [filterEvents: false])
-    subscribe(buttons, "button", buttonHandler, [filterEvents: false])
+    subscribe(buttons, "button", buttonHandler)
     state.clear()
     state.enabled = 1
     state.alarmLoops = 1
-    switches.each {
-        state[it.displayName] = [history: 0, ts: 0]
-    }
+    state.alarming = 0
 }
 
 def doorHandler(evt) {
     if (evt.value == "open") {
         if (state.enabled == 1) {
             log.debug "Sending initial Alarm sequence."
+            state.alarming = 1
             keepAlarming()
         } else {
             log.debug "Got open on door but alarming disabled."
         }
     } else if (evt.value == "closed") {
-        log.debug "Stopping any current alarms."
-        state.alarmLoops = 1
-        siren.stop()
+        enableAlarm()
     }
 }
 
 def keepAlarming() {
     def currentValue = door.currentValue("contact")
-    if (currentValue == "open" && state.enabled == 1) {
-        log.debug "Door is open and alarming enabled, playing a loop (repeated ${state.alarmLoops} times)"
+    if (state.alarming == 1) {
+        log.debug "Door opened without button press triggering alarm, playing a loop (repeated ${state.alarmLoops} times)"
         state.alarmLoops = state.alarmLoops + 1
         siren.playTrack(sirenTrack)
         runIn(sirenRepeat, keepAlarming)
-    }
-}
-
-def switchHandler(evt) {
-    if (evt.physical) {
-        def myMap = state[evt.displayName]
-        def currentTime = now()
-        if (myMap['ts'] > (currentTime - (switchInterval * 1000))) {
-            // Expect up, up, down, down: reset if doesn't matchand if it does sleep alarm
-            switch (myMap['history']) {
-                case 0:
-                    if (evt.value == "on") {
-                        log.debug "Sequence: Got first in sequence 'UP, up, down, down'"
-                        myMap['history'] = 1
-                    } else {
-                        log.debug "Sequence: Isolated off, sequence reset"
-                        myMap['history'] = 0
-                    }
-                    break
-                case 1:
-                    if (evt.value == "on") {
-                        log.debug "Sequence: Got second in sequence 'UP, UP, down, down'"
-                        myMap['history'] = 2
-                    } else {
-                        log.debug "Sequence: Second in sequence incorrect, sequence reset"
-                        myMap['history'] = 0
-                    }
-                    break
-                case 2:
-                    if (evt.value == "off") {
-                        log.debug "Sequence: Got third in sequence 'UP, UP, DOWN, down'"
-                        myMap['history'] = 3
-                    } else {
-                        log.debug "Sequence: Third in sequence incorrect, sequence reset"
-                        myMap['history'] = 0
-                    }
-                    break
-                case 3:
-                    if (evt.value == "off") {
-                        log.debug "Sequence: Got full sequence 'UP, UP, DOWN, DOWN'"
-                        sleepAlarm(switchSleep)
-                    } else {
-                        log.debug "Sequence: Final down in sequence incorrect, sequence reset"
-                    }
-                    myMap['history'] = 0
-                    break
-                default:
-                    log.debug "Sequence: Got UNEXPECTED switchHistory, resetting sequence"
-                    myMap['history'] = 0
-                    break
-            }
-        } else {
-            if (evt.value == "on" ) {
-                log.debug "Sequence: Got first in sequence 'UP, up, down, down'"
-                myMap['history'] = 1
-            } else {
-                log.debug "Sequence: Isolated off, sequence reset"
-                myMap['history'] = 0
-            }
-        }
-        myMap['ts'] = now()
-    } else {
-        log.trace "Skipping digital on/off event"
+        log.debug "Sleeping for sirenRepeat seconds"
     }
 }
 
 def buttonHandler(evt) {
-    log.debug "Got button press, sleeping"
-    sleepAlarm(buttonSleep)
-}
-
-def sleepAlarm(sleepTime) {
-    log.debug "Sleeping escaping alarm for ${sleepTime} seconds"
-    state.enabled = 0
-    siren.stop()
-    runIn(sleepTime, enableAlarm)
+    def buttonNumber = parseJson(evt.data)?.buttonNumber
+    if (buttonNumber == 1) {
+        log.debug "Sleeping escaping alarm for ${buttonSleep} seconds"
+        state.enabled = 0
+        if (state.alarming == 1) {
+            siren.stop()
+            state.alarming = 0
+        }
+        notifyButtons.each { notifyButton ->
+            if (notifyButton.displayName == evt.displayName && notifyChirp != 0) {
+                log.debug "Playing ${notifyChirp} track to notify people this is disabled"
+                siren.playTrack(notifyChirp)
+            }
+        }
+    }
+    runIn(buttonSleep, enableAlarm)
 }
 
 def enableAlarm() {
