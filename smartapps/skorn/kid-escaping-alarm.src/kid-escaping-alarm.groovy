@@ -1,5 +1,15 @@
 /**
- *  Copyright 2015 SmartThings
+ *  Copyright 2016 Martin Lariz
+ *
+ *  Author: Martin Lariz
+ *
+ *  Kid escaping alarm
+ *    This app is designed to monitor a Front Door (though multiple are supported), to ensure that there are no
+ *  unattended children attempt to elope. The track you cannot replay more than every 10 seconds, and should be longer
+ *  than that (recommend at least 30 seconds at minimum) to reduce frequency of "runIn" loops, and therefore Smartthings 
+ *  server load. Pressing one of the approved buttons will allow a window of time to open the door without setting off the
+ *  alarm. It will remain off until the door is then shut again. Should the alarm be triggered it will continue to alarm
+ *  until one of the buttons is pressed (or a specified number of loops is played).
  *
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
  *  in compliance with the License. You may obtain a copy of the License at:
@@ -10,15 +20,12 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  *
- *  Kid escape alarm
- *
- *  Author: Martin Lariz
  */
 definition(
     name: "Kid escaping alarm",
     namespace: "skorn",
     author: "Martin Lariz",
-    description: "Use combination of siren, door sensor and switch to detect child leaving through frontdoor unattended.",
+    description: "Use combination of siren, door sensor and button to detect child leaving through frontdoor unattended.",
     category: "Safety & Security",
     iconUrl: "https://s3.amazonaws.com/smartapp-icons/SafetyAndSecurity/App-IsItSafe.png",
     iconX2Url: "https://s3.amazonaws.com/smartapp-icons/SafetyAndSecurity/App-IsItSafe@2x.png"
@@ -31,14 +38,15 @@ preferences {
     section("Siren to alarm with.") {
         input "siren", "capability.alarm", required: true
         input "sirenTrack", "number", title: "Which track to alarm with? (default: 5)", defaultValue: "5", required: true
-        input "sirenRepeat", "number", title: "How often (in seconds) to repeat (should be duration of the alarm to keep constant)? (default: 10)", defaultValue: "10", required: true
+        input "sirenRepeat", "number", title: "How often (in seconds) to repeat (set to track duration to keep constant)? (default: 30, range: 10-900)", defaultValue: "10", range: "10..900", required: true
+        input "sirenMaxLoops", "number", title: "Maximum number of loops to play? (default: 99, range: 1-99)", defaultValue: "99", range: "1..99", required: true
     }
     section("Button(s) to disable alarm") {
         input "buttons", "capability.button", title: "Standard buttons", required: true, multiple: true
-        input "buttonSleep", "number", title: "Sleep up to X seconds (before door opens, re-enables when closed)? (default: 60)", defaultValue: "60", required: true
+        input "buttonSleep", "number", title: "Allow X seconds to open door (closing re-arms)? (default: 60, range: 5-300)", defaultValue: "60", range: "5..300", required: true
     }
     section("Disable chirp?") {
-        input "notifyButtons", "capability.button", title: "Play a sound when one of these buttons disables the alarm", required: false, multiple: true
+        input "notifyButtons", "capability.button", title: "Play a track when one of these buttons disables the alarm", required: false, multiple: true
         input "notifyChirp", "number", title: "Track to play when alert is temporarily disabled (0 disables)", defaultValue: "0", required: true
     }
 }
