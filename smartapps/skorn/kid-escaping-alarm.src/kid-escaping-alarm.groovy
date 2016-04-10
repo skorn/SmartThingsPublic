@@ -64,16 +64,16 @@ def initialize() {
     subscribe(door, "contact", doorHandler)
     subscribe(buttons, "button", buttonHandler)
     state.clear()
-    state.enabled = 1
+    state.enabled = true
     state.alarmLoops = 1
-    state.alarming = 0
+    state.alarming = false
 }
 
 def doorHandler(evt) {
     if (evt.value == "open") {
-        if (state.enabled == 1) {
+        if (state.enabled) {
             log.debug "Sending initial Alarm sequence."
-            state.alarming = 1
+            state.alarming = true
             keepAlarming()
         } else {
             log.debug "Got open on door but alarming disabled."
@@ -85,7 +85,7 @@ def doorHandler(evt) {
 
 def keepAlarming() {
     def currentValue = door.currentValue("contact")
-    if (state.alarming == 1) {
+    if (state.alarming) {
         log.debug "Door opened without button press triggering alarm, playing a loop (repeated ${state.alarmLoops} times)"
         state.alarmLoops = state.alarmLoops + 1
         siren.playTrack(sirenTrack)
@@ -98,10 +98,10 @@ def buttonHandler(evt) {
     def buttonNumber = parseJson(evt.data)?.buttonNumber
     if (buttonNumber == 1) {
         log.debug "Sleeping escaping alarm for ${buttonSleep} seconds"
-        state.enabled = 0
-        if (state.alarming == 1) {
+        state.enabled = false
+        if (state.alarming) {
             siren.stop()
-            state.alarming = 0
+            state.alarming = false
         }
         notifyButtons.each { notifyButton ->
             if (notifyButton.displayName == evt.displayName && notifyChirp != 0) {
@@ -114,5 +114,5 @@ def buttonHandler(evt) {
 }
 
 def enableAlarm() {
-    state.enabled = 1
+    state.enabled = true
 }
