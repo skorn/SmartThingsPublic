@@ -36,7 +36,7 @@ preferences {
         input "door", "capability.contactSensor", required: true
     }
     section("Siren to alarm with.") {
-        input "siren", "capability.alarm", required: true
+        input "siren", "capability.musicPlayer", required: true
         input "sirenTrack", "number", title: "Which track to alarm with? (default: 5)", defaultValue: "5", required: true
         input "sirenRepeat", "number", title: "How often (in seconds) to repeat (set to track duration to keep constant)? (default: 30, range: 10-900)", defaultValue: "10", range: "10..900", required: true
         input "sirenMaxLoops", "number", title: "Maximum number of loops to play? (default: 99, range: 1-99)", defaultValue: "99", range: "1..99", required: true
