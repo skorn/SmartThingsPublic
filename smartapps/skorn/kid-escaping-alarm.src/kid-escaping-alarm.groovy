@@ -90,7 +90,7 @@ def keepAlarming() {
         state.alarmLoops = state.alarmLoops + 1
         siren.playTrack(sirenTrack)
         runIn(sirenRepeat, keepAlarming)
-        log.debug "Sleeping for sirenRepeat seconds"
+        log.debug "Sleeping for ${sirenRepeat} seconds"
     }
 }
 
